@@ -5,80 +5,147 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"syscall"
+	"unsafe"
 
 	"ascii-art/utils"
 )
 
+type winsize struct {
+	Row    uint16
+	Col    uint16
+	Xpixel uint16
+	Ypixel uint16
+}
+
+func getTerminalSize() (int, int, error) {
+	ws := &winsize{}
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL,
+		uintptr(syscall.Stdin),
+		uintptr(syscall.TIOCGWINSZ),
+		uintptr(unsafe.Pointer(ws)),
+	)
+	if errno != 0 {
+		return 0, 0, errno
+	}
+	return int(ws.Col), int(ws.Row), nil
+}
+
+func alignText(text string, width int, alignment string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if len(line) > width {
+			line = line[:width]
+		}
+		switch alignment {
+		case "left":
+			lines[i] = line
+		case "right":
+			spaces := width - len(line)
+			if spaces > 0 {
+				lines[i] = strings.Repeat(" ", spaces) + line
+			}
+		case "center":
+			spaces := (width - len(line)) / 2
+			if spaces > 0 {
+				lines[i] = strings.Repeat(" ", spaces) + line
+			}
+		case "justify":
+			words := strings.Fields(line)
+			if len(words) < 2 {
+				lines[i] = line
+				continue
+			}
+			spacesNeeded := width - len(line) + len(words) - 1
+			spaceWidth := spacesNeeded / (len(words) - 1)
+			extraSpaces := spacesNeeded % (len(words) - 1)
+			var justifiedLine string
+			for j, word := range words {
+				if j > 0 {
+					spaceToAdd := spaceWidth
+					if j <= extraSpaces {
+						spaceToAdd++
+					}
+					justifiedLine += strings.Repeat(" ", spaceToAdd)
+				}
+				justifiedLine += word
+			}
+			lines[i] = justifiedLine
+		default:
+			lines[i] = line // default to left alignment if type is invalid
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 func main() {
-	// Check if the number of arguments is less than 2 or greater than 5
-	if len(os.Args) < 2 || len(os.Args) > 5 {
+	alignVar := flag.String("align", "left", "output alignment")
+	flag.Parse()
+	args := flag.Args()
+
+	if len(args) < 2 || len(args) > 4 {
 		fmt.Println("Usage: go run . [OPTION] [STRING] [BANNER] \n\nEX: go run . --output=<fileName.txt> something standard")
 		return
 	}
-	if strings.HasPrefix(os.Args[1], "-") {
-		if len(os.Args) != 4 {
-			fmt.Println("Usage: go run . [OPTION] [STRING] [BANNER] \n\nEX: go run . --output=<fileName.txt> something standard")
-			return
-		}
 
-		AlignVar := flag.String("align", "left", "output alignment")
-		flag.Parse()
-		arg := flag.Args()
+	inputWord := args[0]
+	banner := args[1]
+	alignType := *alignVar
 
-		inputWord := arg[0] // The string to be converted to ASCII art
-		banner := arg[1]    // The banner style to use
-		alignType := *AlignVar
-
-		// Load ASCII characters from file
-		file := utils.DetermineFileName(banner)
-		content, err := os.ReadFile(file)
-		if err != nil {
-			fmt.Println("invalid text file")
-			return
-		}
-		s := utils.ReplaceEscape(os.Args[1])
-		// Check for in	fmt.Println("the count is ",count)valid characters
-		for _, char := range s {
-			if char > 126 || char < 32 {
-				fmt.Printf("Error: Character %q is not accepted\n", char)
-				os.Exit(0)
-			}
-		}
-
-		contentLines := utils.SplitFile(string(content))
-
-		if len(contentLines) != 856 {
-			fmt.Println("invalid text file")
-			return
-		}
-		utils.DisplayText(alignType, inputWord, contentLines)
-	} else {
-		var file string
-		if len(os.Args) == 2 {
-			file = "standard.txt"
-		} else if len(os.Args) == 3 {
-			file = utils.DetermineFileName(os.Args[2])
-		}
-		content, err := os.ReadFile(file)
-		if err != nil {
-			fmt.Println("invalid text file")
-			return
-		}
-		s := utils.ReplaceEscape(os.Args[1])
-		// Check for in	fmt.Println("the count is ",count)valid characters
-		for _, char := range s {
-			if char > 126 || char < 32 {
-				fmt.Printf("Error: Character %q is not accepted\n", char)
-				os.Exit(0)
-			}
-		}
-
-		contentLines := utils.SplitFile(string(content))
-
-		if len(contentLines) != 856 {
-			fmt.Println("invalid text file")
-			return
-		}
-		utils.DisplayText2(os.Args[1], contentLines)
+	file := utils.DetermineFileName(banner)
+	content, err := os.ReadFile(file)
+	if err != nil {
+		fmt.Println("invalid text file")
+		return
 	}
+	s := utils.ReplaceEscape(inputWord)
+
+	for _, char := range s {
+		if char > 126 || char < 32 {
+			fmt.Printf("Error: Character %q is not accepted\n", char)
+			os.Exit(0)
+		}
+	}
+
+	contentLines := utils.SplitFile(string(content))
+	if len(contentLines) != 856 {
+		fmt.Println("invalid text file")
+		return
+	}
+
+	data1 := utils.DisplayText(inputWord, contentLines)
+
+	// Print initially aligned text
+	width, _, err := getTerminalSize()
+	if err != nil {
+		fmt.Println("Error getting terminal size:", err)
+		return
+	}
+	alignedText := alignText(data1, width, alignType)
+	fmt.Println(alignedText)
+
+	// Listen for terminal resize events and adjust the output
+	go func() {
+		for {
+			// Check terminal size
+			newWidth, _, err := getTerminalSize()
+			if err != nil {
+				fmt.Println("Error getting terminal size:", err)
+				continue
+			}
+			if newWidth != width {
+				width = newWidth
+				// Re-align text and print
+				alignedText = alignText(data1, width, alignType)
+				fmt.Print("\033[H\033[2J") // Clear screen
+				fmt.Println(alignedText)
+			}
+		}
+	}()
+
+	// Wait for user input to exit
+	fmt.Println("Press 'Enter' to exit...")
+	var input string
+	fmt.Scanln(&input)
 }
+

@@ -2,18 +2,19 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
-func DisplayText(align string,input string, contentLines []string) {
+func DisplayText(input string, contentLines []string) string {
 	if input == "" {
-		return
+		os.Exit(0)
 	}
 	if input == "\\n" || input == "\n" {
 		fmt.Println()
-		return
+		os.Exit(0)
 	}
-	
+	data := ""
 	// split the input string with the "\\n" into a slice strings
 	wordslice := strings.Split(input, "\\n")
 
@@ -25,7 +26,8 @@ func DisplayText(align string,input string, contentLines []string) {
 				fmt.Println()
 			}
 		} else {
-			PrintWord(word, contentLines)
+			data = PrintWord(word, contentLines)
 		}
 	}
+	return data
 }
