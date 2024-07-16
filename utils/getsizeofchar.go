@@ -1,4 +1,5 @@
 package utils
+
 func GetSizeOfCharacters(word string,contentLines []string) int {
 	var length int
 	for _, v := range word {

@@ -1,26 +1,23 @@
 package utils
 
-import (
-	"fmt"
-	"strings"
-)
+import "strings"
 
-func AlignJus(input string, contentLines []string) string {
-	// split the input string with the "\\n" into a slice strings
-	data := ""
-	wordslice := strings.Split(input, "\\n")
 
-	count := 1
-
-	for _, word := range wordslice {
+// Function to justify align text
+func AlignJustify(words []string, contentLines []string) string {
+	var justifiedLines []string
+	for _, word := range words {
 		if word == "" {
-			count++
-			if count < len(wordslice) {
-				fmt.Println()
-			}
+			justifiedLines = append(justifiedLines, word)
+			continue
 		} else {
-			data += PrintWord(word, contentLines)
+			spaces := CheckSpace(word)
+			if spaces != 0 {
+				word = AddSpace(word, spaces, contentLines)
+			}
+			justifiedLines = append(justifiedLines, word)
 		}
 	}
-	return data
+	words = justifiedLines
+	return strings.Join(words, " ")
 }
