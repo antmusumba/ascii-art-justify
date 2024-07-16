@@ -2,18 +2,12 @@ package utils
 
 import (
 	"fmt"
-	"os"
+
 	"strings"
 )
 
 func DisplayText2(input string, contentLines []string) string{
-	if input == "" {
-		os.Exit(0)
-	}
-	if input == "\\n" || input == "\n" {
-		fmt.Println()
-		os.Exit(0)
-	}
+	
 	dat2 := ""
 	
 	// split the input string with the "\\n" into a slice strings
@@ -34,7 +28,7 @@ func DisplayText2(input string, contentLines []string) string{
 			linesOfSlice[i-1] += contentLines[int(v-32)*9+i]
 		}
 	}
-	dat2 = (strings.Join(linesOfSlice, "\n"))
+	dat2 += (strings.Join(linesOfSlice, "\n"))
 
 		}
 	}
