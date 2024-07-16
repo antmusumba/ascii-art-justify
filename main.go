@@ -87,7 +87,7 @@ func main() {
 	args := flag.Args()
 
 	if len(args) < 2 || len(args) > 4 {
-		fmt.Println("Usage: go run . [OPTION] [STRING] [BANNER] \n\nEX: go run . --output=<fileName.txt> something standard")
+		fmt.Println("Usage: go run . [OPTION] [STRING] [BANNER] \n\nEX: go run . --align=right something standard")
 		return
 	}
 
